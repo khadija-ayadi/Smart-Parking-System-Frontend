@@ -1,18 +1,57 @@
+// src/app/app.routes.ts
 import { Routes } from '@angular/router';
-import { LoginComponent } from './pages/login/login'; // ✅ link the component
-import { RegisterComponent } from './pages/register/register';
-import { authGuard } from './guards/auth-guard';
-import { LayoutComponent } from './layout/layout/layout';
-import { HomeComponent } from './pages/home/home';
-import { AboutComponent } from './pages/about/about';
+import { authGuard, roleGuard } from './guards/auth-guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/home', pathMatch: 'full' },
-  { path: 'home', component: HomeComponent },
-  { path: 'about', component: AboutComponent },
-  { path: 'login', component: LoginComponent },
-  { path: 'register', component: RegisterComponent },
-  { path: '', component: LayoutComponent, canActivate: [authGuard], children: [
-    // pages will be added here as we build them
-  ] },
+
+  // 🌐 Public routes
+  {
+   
+    path: '',
+    loadComponent: () => import('./pages/home/home').then(m => m.HomeComponent)
+  
+  },
+  {
+    path: 'about',
+    loadComponent: () =>
+      import('./pages/about/about').then(m => m.AboutComponent)
+  },
+  {
+    path: 'login',
+    loadComponent: () =>
+      import('./pages/login/login').then(m => m.LoginComponent)
+  },
+  {
+    path: 'register',
+    loadComponent: () =>
+      import('./pages/register/register').then(m => m.RegisterComponent)
+  },
+
+  // 🔒 Protected routes
+  {
+    path: 'admin',
+    loadComponent: () =>
+      import('./pages/admin/admin').then(m => m.AdminComponent),
+    canActivate: [authGuard, roleGuard], // ✅ ADD authGuard
+    data: { role: 'Admin' }
+  },
+  {
+    path: 'manager',
+    loadComponent: () =>
+      import('./pages/manager/manager').then(m => m.ManagerComponent),
+    canActivate: [authGuard, roleGuard], // ✅ ADD authGuard
+    data: { role: 'Manager' }
+  },
+  {
+    path: 'driver',
+    loadComponent: () =>
+      import('./pages/driver/driver').then(m => m.DriverComponent),
+    canActivate: [authGuard]
+  },
+
+  // ❌ Fallback
+  {
+    path: '**',
+    redirectTo: ''
+  }
 ];

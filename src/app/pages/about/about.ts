@@ -11,7 +11,7 @@ import { RouterModule } from '@angular/router';
 export class AboutComponent {
     team = [
     { name: 'Khadija A.', role: 'Frontend Developer', initial: 'K' },
-    { name: 'Shasha T.',   role: 'Backend Developer',  initial: 'S' },
+    { name: 'Shayma T.',   role: 'Backend Developer',  initial: 'S' },
     { name: 'Team Member', role: 'Full Stack',          initial: 'T' },
   ];
  

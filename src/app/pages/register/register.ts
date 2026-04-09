@@ -21,12 +21,13 @@ export class RegisterComponent {
     private authService: AuthService,
     private router: Router
   ) {
-    this.registerForm = this.fb.group({
-        email: ['', [Validators.required, Validators.email]],
-        password: ['', [Validators.required, Validators.minLength(6)]],
-        role: [2, Validators.required]  // 2 = Driver by default
-      });
-  }
+    // register.ts — in the FormGroup
+  this.registerForm = this.fb.group({
+          email: ['', [Validators.required, Validators.email]],
+          password: ['', [Validators.required, Validators.minLength(6)]],
+          role: ['Driver', Validators.required]  // ✅ default to Driver
+        });
+    }
 
   onSubmit() {
     if (this.registerForm.valid) {

@@ -251,7 +251,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .step-num {
   font-family: 'Syne', sans-serif;
   font-size: 3rem; font-weight: 800;
-  color: rgba(0,229,160,0.15);
+  color: var(--accent);
   line-height: 1; margin-bottom: 0.75rem;
 }
 

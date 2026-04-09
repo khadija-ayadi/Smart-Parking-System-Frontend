@@ -1,10 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { ChatWidgetComponent } from './chat-widget/chat-widget';
+
 
 @Component({
   selector: 'app-home',
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, ChatWidgetComponent],
   templateUrl: './home.html',
   styleUrl: './home.css',
 })

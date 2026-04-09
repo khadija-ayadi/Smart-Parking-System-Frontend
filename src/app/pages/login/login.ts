@@ -1,45 +1,34 @@
+// src/app/pages/login/login.ts
 import { Component } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { AuthService } from '../../services/auth';
+import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../../services/auth';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [FormsModule, RouterModule, CommonModule],
   templateUrl: './login.html',
-  styleUrls: ['./login.css']
+  styleUrl: './login.css'
 })
 export class LoginComponent {
-  loginForm: FormGroup;
-  errorMessage: string = '';
+  email = '';
+  password = '';
+  error = '';
 
-  constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
-    private router: Router
-  ) {
-    this.loginForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', Validators.required]
-    });
-  }
+  constructor(private auth: AuthService, private router: Router) {}
 
   onSubmit() {
-  if (this.loginForm.valid) {
-    this.authService.login(this.loginForm.value).subscribe({
-      next: (res: any) => {
-        localStorage.setItem('token', res.token);
-        const role = res.user.role; // ✅ role is inside res.user
-        if (role === 'Admin') this.router.navigate(['/admin']);
-        else if (role === 'Manager') this.router.navigate(['/manager']);
-        else if (role === 'Driver') this.router.navigate(['/driver']);
-      },
-      error: (err: any) => {
-        this.errorMessage = 'Invalid email or password';
-      }
-    });
-  }
+  this.auth.login({ email: this.email, password: this.password }).subscribe({
+    next: () => {
+      const role = this.auth.getRole();
+
+      if (role === 'Admin') this.router.navigate(['/admin']);
+      else if (role === 'Manager') this.router.navigate(['/manager']);
+      else this.router.navigate(['/driver']);
+    },
+    error: (err) => this.error = err.error?.message || 'Login failed'
+  });
 }
 }

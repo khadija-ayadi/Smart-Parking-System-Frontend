@@ -1,29 +1,38 @@
-<div class="login-container">
-  <h2>Login</h2>
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-logo">SmartParking</div>
+    <div class="auth-subtitle">Welcome back</div>
+    <h1 class="auth-title">Login</h1>
 
-  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+    <!-- ERROR -->
+    <div class="msg-error" *ngIf="error">{{ error }}</div>
 
-    <div>
-      <label>Email</label>
-      <input type="email" formControlName="email" placeholder="Enter your email" />
-      <small *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched">
-        Valid email is required
-      </small>
+    <!-- EMAIL -->
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input
+        type="email"
+        [(ngModel)]="email"
+        placeholder="you@example.com"
+        class="form-input"
+      />
     </div>
 
-    <div>
-      <label>Password</label>
-      <input type="password" formControlName="password" placeholder="Enter your password" />
-      <small *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
-        Password is required
-      </small>
+    <!-- PASSWORD -->
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input
+        type="password"
+        [(ngModel)]="password"
+        placeholder="Your password"
+        class="form-input"
+      />
     </div>
 
-    <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+    <button class="btn-submit" (click)="onSubmit()">Login</button>
 
-    <button type="submit" [disabled]="loginForm.invalid">Login</button>
-
-  </form>
-
-  <p>Don't have an account? <a routerLink="/register">Register</a></p>
+    <p class="auth-footer">
+      Don't have an account? <a routerLink="/register">Register</a>
+    </p>
+  </div>
 </div>
