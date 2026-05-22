@@ -1,0 +1,193 @@
+<div class="shell">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-title">SmartParking</span>
+      <small class="logo-sub">Manager panel</small>
+    </div>
+    <div class="nav-item" [class.active]="section==='overview'" (click)="show('overview')">▦ Overview</div>
+    <div class="nav-item" [class.active]="section==='parkings'" (click)="show('parkings')">P Parkings</div>
+    <div class="nav-item" [class.active]="section==='zones'" (click)="show('zones')">◈ Zones</div>
+    <div class="nav-item" [class.active]="section==='spots'" (click)="show('spots')">◻ Spots</div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <h2>{{ pageTitle }}</h2>
+      <div class="topbar-right">
+        <span class="badge">Manager</span>
+        <button class="btn-logout" (click)="logout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <div *ngIf="section==='overview'">
+        <div class="stats-row">
+          <div class="stat">
+            <div class="stat-label">Parkings</div>
+            <div class="stat-val">{{ counts.p }}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Zones</div>
+            <div class="stat-val">{{ counts.z }}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total Spots</div>
+            <div class="stat-val">{{ counts.s }}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Available</div>
+            <div class="stat-val stat-val-green">{{ counts.available }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PARKINGS -->
+      <div *ngIf="section==='parkings'">
+        <div class="section-header">
+          <h3 class="section-title">All Parkings</h3>
+        </div>
+        <div *ngIf="loadingParkings" class="loading-state">Loading parkings...</div>
+        <table *ngIf="!loadingParkings">
+          <thead>
+            <tr>
+              <td class="th">Name</td>
+              <td class="th">Address</td>
+              <td class="th">Status</td>
+              <td class="th">Zones</td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of parkings">
+              <td>{{ p.name }}</td>
+              <td class="muted">{{ p.address }}</td>
+              <td>
+                <span class="badge" [class.badge-inactive]="!p.isActive">
+                  {{ p.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td>{{ p.zones?.length ?? 0 }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ZONES -->
+      <div *ngIf="section==='zones'">
+        <div class="section-header">
+          <h3 class="section-title">All Zones</h3>
+          <div class="filter-inline">
+            <input
+              class="search-input"
+              [(ngModel)]="zoneSearch"
+              placeholder="Search by zone or parking..."
+              (input)="filterZones()"
+            />
+          </div>
+        </div>
+        <div *ngIf="loadingZones" class="loading-state">Loading zones...</div>
+        <table *ngIf="!loadingZones">
+          <thead>
+            <tr>
+              <td class="th">Zone Name</td>
+              <td class="th">Parking</td>
+              <td class="th">Action</td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let z of filteredZones">
+              <td>{{ z.name }}</td>
+              <td class="muted">{{ z.parkingName }}</td>
+              <td>
+                <button class="btn-view" (click)="viewSpotsByZone(z)">View Spots</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="empty-state" *ngIf="!loadingZones && filteredZones.length === 0">No zones found.</div>
+      </div>
+
+      <!-- SPOTS -->
+      <div *ngIf="section==='spots'">
+        <div class="section-header">
+          <h3 class="section-title">Spots</h3>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-row">
+          <div class="filter-group">
+            <label class="filter-label">Parking</label>
+            <select class="filter-select" [(ngModel)]="selectedParkingId" (change)="onParkingChange()">
+              <option value="">— All parkings —</option>
+              <option *ngFor="let p of parkings" [value]="p.id">{{ p.name }}</option>
+            </select>
+          </div>
+          <div class="filter-group" *ngIf="zonesForFilter.length > 0">
+            <label class="filter-label">Zone</label>
+            <select class="filter-select" [(ngModel)]="selectedZoneId" (change)="loadSpots()">
+              <option value="">— All zones —</option>
+              <option *ngFor="let z of zonesForFilter" [value]="z.id">{{ z.name }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Status</label>
+            <select class="filter-select" [(ngModel)]="spotStatusFilter" (change)="applySpotFilter()">
+              <option value="all">All</option>
+              <option value="0">Free</option>
+              <option value="1">Occupied</option>
+            </select>
+          </div>
+        </div>
+
+        <div *ngIf="loadingSpots" class="loading-state">Loading spots...</div>
+
+        <table *ngIf="!loadingSpots && filteredSpots.length > 0">
+          <thead>
+            <tr>
+              <td class="th">Code</td>
+              <td class="th">Zone</td>
+              <td class="th">Parking</td>
+              <td class="th">Status</td>
+              <td class="th">Change Status</td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of filteredSpots">
+              <td><strong>{{ s.code }}</strong></td>
+              <td class="muted">{{ s.zoneName }}</td>
+              <td class="muted">{{ s.parkingName }}</td>
+              <td>
+                <span class="dot" [class.dot-occupied]="s.status !== 0"></span>
+                {{ s.status === 0 ? 'Free' : 'Occupied' }}
+              </td>
+              <td>
+                <button
+                  class="btn-status"
+                  [class.btn-status-free]="s.status !== 0"
+                  [class.btn-status-occupy]="s.status === 0"
+                  (click)="toggleStatus(s)"
+                  [disabled]="s.updating"
+                >
+                  {{ s.updating ? '...' : s.status === 0 ? 'Mark Occupied' : 'Mark Free' }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="empty-state" *ngIf="!loadingSpots && filteredSpots.length === 0 && spotsLoaded">
+          No spots match the selected filters.
+        </div>
+        <div class="empty-state" *ngIf="!spotsLoaded && !loadingSpots">
+          Select a parking to load spots.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
