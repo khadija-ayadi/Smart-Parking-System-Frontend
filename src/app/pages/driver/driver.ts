@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-driver',
@@ -14,66 +15,66 @@ import { Router } from '@angular/router';
 export class DriverComponent implements OnInit {
   API = 'http://localhost:5232/api';
 
-  section = 'overview';
+  section   = 'overview';
   pageTitle = 'Overview';
 
-  parkings: any[] = [];
-  zones: any[] = [];
-  spots: any[] = [];
-  filteredSpots: any[] = [];
+  parkings      : any[] = [];
+  zones         : any[] = [];
+  spots         : any[] = [];
+  filteredSpots : any[] = [];
+  reservations  : any[] = [];
 
   counts = { p: 0, available: 0, occupied: 0 };
 
-  selectedParkingId: any = '';
-  selectedZoneId: any = '';
+  selectedParkingId : any = '';
+  selectedZoneId    : any = '';
   spotFilter = 'all';
 
-  loadingParkings = false;
-  loadingSpots = false;
+  loadingParkings     = false;
+  loadingSpots        = false;
+  loadingReservations = false;
 
-  showZoneModal = false;
-  selectedParking: any = null;
-  modalZones: any[] = [];
+  showZoneModal    = false;
+  selectedParking  : any = null;
+  modalZones       : any[] = [];
+
+  showReserveModal = false;
+  selectedSpot     : any = null;
+
+  // ── QR card ──────────────────────────────────────────────
+  showQrCard          = false;
+  selectedReservation : any = null;
 
   // Profile decoded from JWT
-  profile = {
-    id: '',
-    email: '',
-    role: '',
-    exp: '',
-    initials: ''
-  };
+  profile = { id: '', email: '', role: '', exp: '', initials: '' };
+
+  reservationForm = { startTime: '', endTime: '', paymentMethod: 'Cash' };
+  reserveLoading  = false;
+  reserveError    = '';
+
+  showCardForm = false;
+  cardForm     = { number: '', expiry: '', cvv: '', name: '' };
 
   constructor(private http: HttpClient, private router: Router) {}
 
   ngOnInit() {
     this.decodeProfile();
     this.loadOverview();
+    this.loadParkings();
   }
 
   // ── JWT decode ────────────────────────────────────────────
   decodeProfile() {
     const token = localStorage.getItem('token');
     if (!token) return;
-
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-
-      // ASP.NET Core JWT claim names
-      this.profile.id   = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
-                       ?? payload['sub']
-                       ?? payload['nameid']
-                       ?? '—';
-
+      this.profile.id    = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+                        ?? payload['sub'] ?? payload['nameid'] ?? '—';
       this.profile.email = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']
-                        ?? payload['email']
-                        ?? '—';
-
+                        ?? payload['email'] ?? '—';
       this.profile.role  = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
-                        ?? payload['role']
-                        ?? '—';
-
-      // Expiry — convert Unix timestamp to readable date
+                        ?? payload['role'] ?? '—';
       if (payload['exp']) {
         const date = new Date(payload['exp'] * 1000);
         this.profile.exp = date.toLocaleDateString('en-GB', {
@@ -81,11 +82,8 @@ export class DriverComponent implements OnInit {
           hour: '2-digit', minute: '2-digit'
         });
       }
-
-      // Initials from email (e.g. "ahmed@gmail.com" → "AH")
       const emailPart = this.profile.email.split('@')[0];
       this.profile.initials = emailPart.slice(0, 2).toUpperCase();
-
     } catch (e) {
       console.error('Failed to decode JWT', e);
     }
@@ -93,14 +91,16 @@ export class DriverComponent implements OnInit {
 
   // ── Navigation ────────────────────────────────────────────
   show(sec: string) {
-    this.section = sec;
-    this.pageTitle = sec === 'overview' ? 'Overview'
-                   : sec === 'parkings' ? 'Parkings'
-                   : sec === 'spots'    ? 'Browse Spots'
+    this.section   = sec;
+    this.pageTitle = sec === 'overview'     ? 'Overview'
+                   : sec === 'parkings'     ? 'Parkings'
+                   : sec === 'spots'        ? 'Browse Spots'
+                   : sec === 'reservations' ? 'My Reservations'
                    : 'My Profile';
 
     if (sec === 'overview') this.loadOverview();
-    if (sec === 'parkings' || sec === 'spots') this.loadParkings();
+    if ((sec === 'parkings' || sec === 'spots') && this.parkings.length === 0) this.loadParkings();
+    if (sec === 'reservations') this.loadReservations();
   }
 
   // ── Overview ──────────────────────────────────────────────
@@ -108,7 +108,6 @@ export class DriverComponent implements OnInit {
     this.http.get<any[]>(this.API + '/parkings').subscribe(parkings => {
       this.counts.p = parkings.length;
       let available = 0, occupied = 0, pending = 0;
-
       parkings.forEach(p => {
         (p.zones ?? []).forEach((z: any) => {
           pending++;
@@ -128,29 +127,31 @@ export class DriverComponent implements OnInit {
   // ── Parkings ──────────────────────────────────────────────
   loadParkings() {
     this.loadingParkings = true;
-    this.http.get<any[]>(this.API + '/parkings').subscribe({
-      next: data => { this.parkings = data; this.loadingParkings = false; },
-      error: ()  => { this.loadingParkings = false; }
-    });
+    this.http.get<any[]>(this.API + '/parkings')
+      .pipe(finalize(() => this.loadingParkings = false))
+      .subscribe({
+        next : data => { this.parkings = data; },
+        error: err  => { console.error('Parkings failed:', err); }
+      });
   }
 
   viewZones(parking: any) {
     this.selectedParking = parking;
-    this.modalZones = parking.zones ?? [];
-    this.showZoneModal = true;
+    this.modalZones      = parking.zones ?? [];
+    this.showZoneModal   = true;
   }
 
   closeModal() {
-    this.showZoneModal = false;
+    this.showZoneModal   = false;
     this.selectedParking = null;
-    this.modalZones = [];
+    this.modalZones      = [];
   }
 
   goToSpots(zone: any) {
     this.closeModal();
-    this.section = 'spots';
+    this.section   = 'spots';
     this.pageTitle = 'Browse Spots';
-    const parking = this.parkings.find(p => (p.zones ?? []).some((z: any) => z.id === zone.id));
+    const parking  = this.parkings.find(p => (p.zones ?? []).some((z: any) => z.id === zone.id));
     if (parking) {
       this.selectedParkingId = parking.id;
       this.onParkingChange(() => {
@@ -163,9 +164,9 @@ export class DriverComponent implements OnInit {
   // ── Spots ─────────────────────────────────────────────────
   onParkingChange(callback?: () => void) {
     this.selectedZoneId = '';
-    this.spots = [];
-    this.filteredSpots = [];
-    this.zones = [];
+    this.spots          = [];
+    this.filteredSpots  = [];
+    this.zones          = [];
     if (!this.selectedParkingId) return;
 
     const parking = this.parkings.find(p => p.id == this.selectedParkingId);
@@ -182,8 +183,8 @@ export class DriverComponent implements OnInit {
 
   loadSpotsByZone() {
     if (!this.selectedZoneId) return;
-    this.loadingSpots = true;
-    this.spots = [];
+    this.loadingSpots  = true;
+    this.spots         = [];
     this.filteredSpots = [];
 
     const url = this.spotFilter === 'available'
@@ -191,12 +192,137 @@ export class DriverComponent implements OnInit {
       : `${this.API}/spots/by-zone/${this.selectedZoneId}`;
 
     this.http.get<any[]>(url).subscribe({
-      next: data => { this.spots = data; this.filteredSpots = data; this.loadingSpots = false; },
-      error: ()  => { this.loadingSpots = false; }
+      next : data => { this.spots = data; this.filteredSpots = data; this.loadingSpots = false; },
+      error: ()   => { this.loadingSpots = false; }
     });
   }
 
   applyFilter() { this.loadSpotsByZone(); }
+
+  // ── Reserve modal ─────────────────────────────────────────
+  openReserveModal(spot: any) {
+    if (spot.status !== 0) return;
+    this.selectedSpot     = spot;
+    this.reservationForm  = { startTime: '', endTime: '', paymentMethod: 'Cash' };
+    this.reserveError     = '';
+    this.showCardForm     = false;
+    this.showReserveModal = true;
+  }
+
+  closeReserveModal() {
+    this.showReserveModal = false;
+    this.selectedSpot     = null;
+    this.showCardForm     = false;
+  }
+
+  onPaymentMethodChange() {
+    this.showCardForm = this.reservationForm.paymentMethod === 'Online';
+  }
+
+  // ── Confirm reservation → capture response → show QR ─────
+  confirmReservation() {
+    const { startTime, endTime, paymentMethod } = this.reservationForm;
+
+    if (!startTime || !endTime) {
+      this.reserveError = 'Please select start and end time.'; return;
+    }
+    if (new Date(endTime) <= new Date(startTime)) {
+      this.reserveError = 'End time must be after start time.'; return;
+    }
+    if (paymentMethod === 'Online') {
+      if (!this.cardForm.number || !this.cardForm.expiry ||
+          !this.cardForm.cvv   || !this.cardForm.name) {
+        this.reserveError = 'Please fill in all card details.'; return;
+      }
+    }
+
+    this.reserveLoading = true;
+    this.reserveError   = '';
+
+    const body = {
+      spotId       : this.selectedSpot.id,
+      startTime,
+      endTime,
+      paymentMethod
+    };
+
+    // ── POST /reservations ── expects VerifyPaymentResponse shape
+    this.http.post<any>(this.API + '/reservations', body).subscribe({
+      next: (res) => {
+        this.reserveLoading = false;
+        this.closeReserveModal();
+        this.loadSpotsByZone();   // refresh spot statuses
+
+        // ── Build selectedReservation from the POST response ──────────────
+        // The API may return the full object directly, or just an id.
+        // We normalise both cases so the QR card always has what it needs.
+        this.selectedReservation = {
+          // fields returned by VerifyPaymentResponse / your reservation DTO
+          id             : res.reservationId  ?? res.id,
+          parkingName    : res.parkingName    ?? this.selectedSpot?.parkingName  ?? '—',
+          zoneName       : res.zoneName       ?? this.selectedSpot?.zoneName     ?? '—',
+          spotCode       : res.spotCode       ?? this.selectedSpot?.code         ?? '—',
+          startTime      : res.startTime,
+          plannedEndTime : res.plannedEndTime ?? res.endTime,
+          initialAmount  : res.initialAmount  ?? res.amount,
+          totalAmount    : res.totalAmount    ?? res.amount,
+          status         : res.status         ?? 'Created',
+          paymentMethod,
+          qrToken        : res.qrToken        ?? res.token ?? null,
+        };
+
+        // ── Navigate to reservations tab and open the QR card ─────────────
+        this.show('reservations');
+        this.showQrCard = true;
+      },
+      error: (err) => {
+        this.reserveLoading = false;
+        this.reserveError   = err?.error?.message ?? 'Reservation failed.';
+      }
+    });
+  }
+
+  // ── My Reservations ───────────────────────────────────────
+  loadReservations() {
+    this.loadingReservations = true;
+    this.http.get<any[]>(this.API + '/reservations/my').subscribe({
+      next : data => { this.reservations = data; this.loadingReservations = false; },
+      error: ()   => { this.loadingReservations = false; }
+    });
+  }
+
+  cancelReservation(id: number) {
+    if (!confirm('Cancel this reservation?')) return;
+    this.http.delete(this.API + '/reservations/' + id).subscribe({
+      next : () => {
+        // If the cancelled reservation is currently shown in the QR card, close it
+        if (this.selectedReservation?.id === id) this.closeQrCard();
+        this.loadReservations();
+      },
+      error: err => alert(err?.error?.message ?? 'Cancel failed.')
+    });
+  }
+
+  statusLabel(s: string) {
+    return s === 'Confirmed' ? '✅ Confirmed'
+         : s === 'Pending'   ? '⏳ Pending'
+         : s === 'Created'   ? '🆕 Created'
+         : s === 'Active'    ? '🟢 Active'
+         : s === 'Completed' ? '🏁 Completed'
+         : s === 'Cancelled' ? '❌ Cancelled'
+         : s;
+  }
+
+  // ── QR card ───────────────────────────────────────────────
+  viewQr(r: any) {
+    this.selectedReservation = r;
+    this.showQrCard          = true;
+  }
+
+  closeQrCard() {
+    this.showQrCard          = false;
+    this.selectedReservation = null;
+  }
 
   // ── Auth ──────────────────────────────────────────────────
   logout() {

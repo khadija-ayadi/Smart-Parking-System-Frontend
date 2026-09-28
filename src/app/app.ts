@@ -12,13 +12,13 @@ import { ChatWidgetComponent } from './pages/home/chat-widget/chat-widget';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterOutlet, RouterModule, NavbarComponent, SidebarComponent, ChatWidgetComponent],
   template: `
-      <!-- Public pages -->
+     
     <ng-container *ngIf="isPublicRoute">
       <app-navbar />
       <router-outlet />
     </ng-container>
 
-    <!-- Dashboard/admin pages -->
+    
     <ng-container *ngIf="!isPublicRoute">
       <app-sidebar />
       <main class="dashboard-main">
@@ -26,7 +26,7 @@ import { ChatWidgetComponent } from './pages/home/chat-widget/chat-widget';
       </main>
     </ng-container>
 
-    <!-- Global chat widget (visible on ALL pages) -->
+    
     <app-chat-widget />
   `,
   styles: [`

@@ -22,12 +22,12 @@ export class NavbarComponent {
     return !!localStorage.getItem('token');
   }
 
-  goToDashboard() {
-    const role = this.auth.getRole();
-    if (role === 'Admin') this.router.navigate(['/admin']);
-    else if (role === 'Manager') this.router.navigate(['/manager']);
-    else this.router.navigate(['/driver']);
-  }
+   goToDashboard() {
+      const role = String(this.auth.getRole()).toLowerCase();
+      if (role === '0' || role === 'admin')   this.router.navigate(['/admin']);
+      else if (role === '1' || role === 'manager') this.router.navigate(['/manager']);
+      else this.router.navigate(['/driver']);
+    }
 
   logout() {
     localStorage.removeItem('token');

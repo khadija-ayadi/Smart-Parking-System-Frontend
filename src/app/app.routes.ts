@@ -1,10 +1,9 @@
-// src/app/app.routes.ts
+
 import { Routes } from '@angular/router';
 import { authGuard, roleGuard } from './guards/auth-guard';
 
 export const routes: Routes = [
 
-  // 🌐 Public routes
   {
    
     path: '',
@@ -27,19 +26,18 @@ export const routes: Routes = [
       import('./pages/register/register').then(m => m.RegisterComponent)
   },
 
-  // 🔒 Protected routes
   {
     path: 'admin',
     loadComponent: () =>
       import('./pages/admin/admin').then(m => m.AdminComponent),
-    canActivate: [authGuard, roleGuard], // ✅ ADD authGuard
+    canActivate: [authGuard, roleGuard], 
     data: { role: 'Admin' }
   },
   {
     path: 'manager',
     loadComponent: () =>
       import('./pages/manager/manager').then(m => m.ManagerComponent),
-    canActivate: [authGuard, roleGuard], // ✅ ADD authGuard
+    canActivate: [authGuard, roleGuard], 
     data: { role: 'Manager' }
   },
   {
@@ -49,7 +47,6 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
 
-  // ❌ Fallback
   {
     path: '**',
     redirectTo: ''

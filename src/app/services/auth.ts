@@ -13,8 +13,8 @@ export class AuthService {
   login(data: { email: string; password: string }): Observable<any> {
     return this.http.post(`${this.apiUrl}/auth/login`, data).pipe(
       tap((res: any) => {
-        localStorage.setItem('token', res.token);         // ✅ save token
-        localStorage.setItem('role', res.user.role);      // ✅ save role
+        localStorage.setItem('token', res.token);         
+        localStorage.setItem('role', res.user.role);      
         localStorage.setItem('user', JSON.stringify(res.user));
       })
     );
@@ -39,11 +39,9 @@ export class AuthService {
   }
 
   getRole(): string | null {
-    // First try localStorage (faster)
     const role = localStorage.getItem('role');
     if (role) return role;
 
-    // Fallback: decode JWT
     const token = this.getToken();
     if (!token) return null;
     try {

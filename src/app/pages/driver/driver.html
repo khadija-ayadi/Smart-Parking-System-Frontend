@@ -5,10 +5,11 @@
       <span class="logo-title">SmartParking</span>
       <small class="logo-sub">Driver panel</small>
     </div>
-    <div class="nav-item" [class.active]="section==='overview'" (click)="show('overview')">▦ Overview</div>
-    <div class="nav-item" [class.active]="section==='parkings'" (click)="show('parkings')">P Parkings</div>
-    <div class="nav-item" [class.active]="section==='spots'" (click)="show('spots')">◻ Browse Spots</div>
-    <div class="nav-item" [class.active]="section==='profile'" (click)="show('profile')">⊙ My Profile</div>
+    <div class="nav-item" [class.active]="section==='overview'"     (click)="show('overview')">Overview</div>
+    <div class="nav-item" [class.active]="section==='parkings'"     (click)="show('parkings')">Parkings</div>
+    <div class="nav-item" [class.active]="section==='spots'"        (click)="show('spots')">Spots</div>
+    <div class="nav-item" [class.active]="section==='reservations'" (click)="show('reservations')">My Reservations</div>
+    <div class="nav-item" [class.active]="section==='profile'"      (click)="show('profile')">My Profile</div>
   </div>
 
   <!-- MAIN -->
@@ -23,7 +24,7 @@
 
     <div class="content">
 
-      <!-- OVERVIEW -->
+      <!-- ══════════════ OVERVIEW ══════════════ -->
       <div *ngIf="section==='overview'">
         <div class="stats-row">
           <div class="stat">
@@ -41,11 +42,14 @@
         </div>
       </div>
 
-      <!-- PARKINGS -->
+      <!-- ══════════════ PARKINGS ══════════════ -->
       <div *ngIf="section==='parkings'">
         <div class="section-header"><h3 class="section-title">All Parkings</h3></div>
         <div *ngIf="loadingParkings" class="loading-state">Loading parkings...</div>
-        <table *ngIf="!loadingParkings">
+        <div *ngIf="!loadingParkings && parkings.length === 0" class="empty-state">
+          No parkings found or request failed.
+        </div>
+        <table *ngIf="!loadingParkings && parkings.length > 0">
           <thead>
             <tr>
               <td class="th">Name</td>
@@ -59,7 +63,11 @@
             <tr *ngFor="let p of parkings">
               <td>{{ p.name }}</td>
               <td class="muted">{{ p.address }}</td>
-              <td><span class="badge" [class.badge-inactive]="!p.isActive">{{ p.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td>
+                <span class="badge" [class.badge-inactive]="!p.isActive">
+                  {{ p.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
               <td>{{ p.zones?.length ?? 0 }}</td>
               <td><button class="btn-view" (click)="viewZones(p)">View Zones</button></td>
             </tr>
@@ -67,7 +75,7 @@
         </table>
       </div>
 
-      <!-- BROWSE SPOTS -->
+      <!-- ══════════════ BROWSE SPOTS ══════════════ -->
       <div *ngIf="section==='spots'">
         <div class="section-header"><h3 class="section-title">Browse Spots</h3></div>
         <div class="filter-row">
@@ -95,98 +103,294 @@
         </div>
         <div *ngIf="loadingSpots" class="loading-state">Loading spots...</div>
         <div class="spots-grid" *ngIf="!loadingSpots && filteredSpots.length > 0">
-          <div class="spot-card" *ngFor="let s of filteredSpots" [class.spot-occupied]="s.status !== 0">
+          <div class="spot-card"
+               *ngFor="let s of filteredSpots"
+               [class.spot-occupied]="s.status !== 0"
+               [class.spot-clickable]="s.status === 0"
+               (click)="openReserveModal(s)">
             <div class="spot-code">{{ s.code }}</div>
             <div class="spot-zone">{{ s.zoneName }}</div>
             <div class="spot-status-dot" [class.dot-occupied]="s.status !== 0"></div>
-            <div class="spot-status-label">{{ s.status === 0 ? 'Free' : 'Occupied' }}</div>
+            <div class="spot-status-label">{{ s.status === 0 ? 'Free — Click to reserve' : 'Occupied' }}</div>
           </div>
         </div>
         <div class="empty-state" *ngIf="!loadingSpots && selectedZoneId && filteredSpots.length === 0">No spots found.</div>
         <div class="empty-state" *ngIf="!selectedZoneId">Select a parking and zone to browse spots.</div>
       </div>
 
-      <!-- PROFILE -->
+      <!-- ══════════════ MY RESERVATIONS ══════════════ -->
+      <div *ngIf="section==='reservations'">
+        <div class="section-header"><h3 class="section-title">My Reservations</h3></div>
+
+        <div *ngIf="loadingReservations" class="loading-state">Loading...</div>
+
+        <div *ngIf="!loadingReservations && reservations.length === 0" class="empty-state">
+          No reservations yet.
+        </div>
+
+        <!-- ── QR Detail Card (shown when a reservation is selected) ── -->
+        <div class="qr-card" *ngIf="showQrCard && selectedReservation">
+          <button class="qr-close" (click)="closeQrCard()">✕</button>
+
+          <div class="qr-confirmed">
+            <span class="qr-check">✔</span>
+            <div>
+              <div class="qr-title">Reservation Confirmed!</div>
+              <div class="qr-sub">
+                Payment successful · {{ selectedReservation.totalAmount }} DT charged
+              </div>
+            </div>
+          </div>
+
+          <div class="qr-details">
+            <div class="qr-detail-item">
+              <div class="qr-detail-label">PARKING</div>
+              <div class="qr-detail-val">{{ selectedReservation.parkingName }}</div>
+            </div>
+            <div class="qr-detail-item">
+              <div class="qr-detail-label">ZONE</div>
+              <div class="qr-detail-val">{{ selectedReservation.zoneName }}</div>
+            </div>
+            <div class="qr-detail-item">
+              <div class="qr-detail-label">SPOT</div>
+              <div class="qr-detail-val">{{ selectedReservation.spotCode }}</div>
+            </div>
+            <div class="qr-detail-item">
+              <div class="qr-detail-label">FROM</div>
+              <div class="qr-detail-val">
+                {{ selectedReservation.startTime | date:'MMM d, y, h:mm a' }}
+              </div>
+            </div>
+            <div class="qr-detail-item">
+              <div class="qr-detail-label">UNTIL</div>
+              <div class="qr-detail-val">
+                {{ (selectedReservation.plannedEndTime ?? selectedReservation.endTime) | date:'MMM d, y, h:mm a' }}
+              </div>
+            </div>
+            <div class="qr-detail-item">
+              <div class="qr-detail-label">AMOUNT</div>
+              <div class="qr-detail-val">{{ selectedReservation.totalAmount ?? selectedReservation.initialAmount }} DT</div>
+            </div>
+            <div class="qr-detail-item">
+              <div class="qr-detail-label">STATUS</div>
+              <div class="qr-detail-val">
+                <span class="badge" [class.badge-inactive]="selectedReservation.status==='Cancelled'">
+                  {{ statusLabel(selectedReservation.status) }}
+                </span>
+              </div>
+            </div>
+            <div class="qr-detail-item" *ngIf="selectedReservation.qrToken">
+              <div class="qr-detail-label">QR TOKEN</div>
+              <div class="qr-detail-val qr-token">{{ selectedReservation.qrToken }}</div>
+            </div>
+          </div>
+
+          <!-- QR Code image (only if token exists) -->
+          <div class="qr-image-wrap" *ngIf="selectedReservation.qrToken">
+            <div class="qr-show-label">Show this at entry &amp; exit</div>
+            <img
+              [src]="'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + selectedReservation.qrToken"
+              class="qr-image"
+              alt="QR Code"
+            />
+            <div class="qr-token-below">{{ selectedReservation.qrToken }}</div>
+          </div>
+
+          <!-- Actions -->
+          <div class="qr-actions">
+            <button class="btn-cancel-modal" (click)="closeQrCard()">Close</button>
+            <button
+              class="btn-view btn-danger"
+              *ngIf="selectedReservation.status !== 'Cancelled' && selectedReservation.status !== 'Completed'"
+              (click)="cancelReservation(selectedReservation.id); closeQrCard()">
+              Cancel Reservation
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Reservation History List ── -->
+        <div *ngIf="!loadingReservations && reservations.length > 0">
+          <div class="res-history-title">Reservation History</div>
+          <div class="res-list">
+            <div
+              class="res-row"
+              *ngFor="let r of reservations"
+              [class.res-row-active]="selectedReservation?.id === r.id && showQrCard"
+              (click)="viewQr(r)">
+
+              <!-- Spot badge -->
+              <div class="res-spot-badge">{{ r.spotCode }}</div>
+
+              <!-- Info -->
+              <div class="res-info">
+                <div class="res-name">{{ r.parkingName }} · {{ r.zoneName }}</div>
+                <div class="res-time">
+                  {{ r.startTime | date:'MMM d, y · h:mm a' }}
+                  →
+                  {{ (r.plannedEndTime ?? r.endTime) | date:'h:mm a' }}
+                </div>
+                <div class="res-payment-method muted">{{ r.paymentMethod }}</div>
+              </div>
+
+              <!-- Right side -->
+              <div class="res-right">
+                <div class="res-amount">{{ r.totalAmount ?? r.initialAmount ?? '—' }} DT</div>
+                <span class="badge" [class.badge-inactive]="r.status==='Cancelled'">
+                  {{ statusLabel(r.status) }}
+                </span>
+                <div class="res-row-actions">
+                  <button class="btn-view" (click)="viewQr(r); $event.stopPropagation()">
+                    🎫 QR
+                  </button>
+                  <button
+                    class="btn-view btn-danger"
+                    *ngIf="r.status !== 'Cancelled' && r.status !== 'Completed'"
+                    (click)="cancelReservation(r.id); $event.stopPropagation()">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════ PROFILE ══════════════ -->
       <div *ngIf="section==='profile'">
         <div class="profile-wrapper">
-
           <div class="profile-avatar-card">
             <div class="avatar-circle">{{ profile.initials }}</div>
             <div class="avatar-email">{{ profile.email }}</div>
             <div class="avatar-role-badge">{{ profile.role }}</div>
             <div class="avatar-id">ID · #{{ profile.id }}</div>
           </div>
-
           <div class="profile-info-card">
             <div class="info-section-title">Account Details</div>
-
             <div class="info-row">
               <div class="info-field">
                 <div class="info-label">Email</div>
                 <div class="info-value">{{ profile.email }}</div>
               </div>
             </div>
-
             <div class="info-row">
               <div class="info-field">
                 <div class="info-label">Role</div>
-                <div class="info-value">
-                  <span class="role-pill">{{ profile.role }}</span>
-                </div>
+                <div class="info-value"><span class="role-pill">{{ profile.role }}</span></div>
               </div>
               <div class="info-field">
                 <div class="info-label">User ID</div>
                 <div class="info-value muted">#{{ profile.id }}</div>
               </div>
             </div>
-
             <div class="info-row">
               <div class="info-field">
                 <div class="info-label">Session expires</div>
                 <div class="info-value muted">{{ profile.exp }}</div>
               </div>
             </div>
-
             <div class="info-divider"></div>
             <div class="info-section-title">Security</div>
-
             <div class="info-row">
               <div class="info-field">
                 <div class="info-label">Password</div>
                 <div class="info-value muted">••••••••••</div>
               </div>
             </div>
-
             <div class="profile-actions">
               <button class="btn-logout" (click)="logout()">Logout from account</button>
             </div>
           </div>
-
         </div>
       </div>
 
-      <!-- ZONE MODAL -->
-      <div class="modal-overlay" *ngIf="showZoneModal" (click)="closeModal()">
-        <div class="modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <h3>Zones — {{ selectedParking?.name }}</h3>
-            <button class="modal-close" (click)="closeModal()">✕</button>
-          </div>
-          <div class="modal-body">
-            <div *ngIf="modalZones.length === 0" class="empty-state">No zones found.</div>
-            <table *ngIf="modalZones.length > 0">
-              <thead><tr><td class="th">Zone Name</td><td class="th">Action</td></tr></thead>
-              <tbody>
-                <tr *ngFor="let z of modalZones">
-                  <td>{{ z.name }}</td>
-                  <td><button class="btn-view" (click)="goToSpots(z)">Browse Spots</button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+    </div><!-- /content -->
+  </div><!-- /main -->
 
+  <!-- ══════════════ ZONE MODAL ══════════════ -->
+  <div class="modal-overlay" *ngIf="showZoneModal" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Zones — {{ selectedParking?.name }}</h3>
+        <button class="modal-close" (click)="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="modalZones.length === 0" class="empty-state">No zones found.</div>
+        <table *ngIf="modalZones.length > 0">
+          <thead><tr><td class="th">Zone Name</td><td class="th">Action</td></tr></thead>
+          <tbody>
+            <tr *ngFor="let z of modalZones">
+              <td>{{ z.name }}</td>
+              <td><button class="btn-view" (click)="goToSpots(z)">Browse Spots</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
+
+  <!-- ══════════════ RESERVE MODAL ══════════════ -->
+  <div class="modal-overlay" *ngIf="showReserveModal" (click)="closeReserveModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Reserve Spot {{ selectedSpot?.code }}</h3>
+        <button class="modal-close" (click)="closeReserveModal()">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <div class="form-group">
+          <label class="filter-label">Start Time</label>
+          <input type="datetime-local" class="filter-select" [(ngModel)]="reservationForm.startTime" />
+        </div>
+        <div class="form-group">
+          <label class="filter-label">End Time</label>
+          <input type="datetime-local" class="filter-select" [(ngModel)]="reservationForm.endTime" />
+        </div>
+
+        <div class="form-group">
+          <label class="filter-label">Payment Method</label>
+          <select class="filter-select" [(ngModel)]="reservationForm.paymentMethod"
+                  (change)="onPaymentMethodChange()">
+            <option value="Cash">💵 Cash on arrival</option>
+            <option value="Online">💳 Pay online</option>
+          </select>
+        </div>
+
+        <div *ngIf="showCardForm" class="card-form">
+          <div class="form-group">
+            <label class="filter-label">Cardholder Name</label>
+            <input type="text" class="filter-select" placeholder="John Doe"
+                   [(ngModel)]="cardForm.name" />
+          </div>
+          <div class="form-group">
+            <label class="filter-label">Card Number</label>
+            <input type="text" class="filter-select" placeholder="1234 5678 9012 3456"
+                   maxlength="19" [(ngModel)]="cardForm.number" />
+          </div>
+          <div class="card-row">
+            <div class="form-group">
+              <label class="filter-label">Expiry</label>
+              <input type="text" class="filter-select" placeholder="MM/YY"
+                     maxlength="5" [(ngModel)]="cardForm.expiry" />
+            </div>
+            <div class="form-group">
+              <label class="filter-label">CVV</label>
+              <input type="text" class="filter-select" placeholder="123"
+                     maxlength="3" [(ngModel)]="cardForm.cvv" />
+            </div>
+          </div>
+        </div>
+
+        <p *ngIf="reserveError" class="error-msg">{{ reserveError }}</p>
+
+        <div class="modal-actions">
+          <button class="btn-cancel-modal" (click)="closeReserveModal()">Cancel</button>
+          <button class="btn-confirm" (click)="confirmReservation()" [disabled]="reserveLoading">
+            {{ reserveLoading ? 'Processing...' : 'Confirm Reservation' }}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
 </div>

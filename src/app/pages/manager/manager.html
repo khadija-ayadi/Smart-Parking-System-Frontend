@@ -9,6 +9,7 @@
     <div class="nav-item" [class.active]="section==='parkings'" (click)="show('parkings')">P Parkings</div>
     <div class="nav-item" [class.active]="section==='zones'" (click)="show('zones')">◈ Zones</div>
     <div class="nav-item" [class.active]="section==='spots'" (click)="show('spots')">◻ Spots</div>
+    <div class="nav-item" [class.active]="section==='profile'" (click)="show('profile')">👤 Profile</div>
   </div>
 
   <!-- MAIN -->
@@ -51,65 +52,150 @@
       <div *ngIf="section==='parkings'">
         <div class="section-header">
           <h3 class="section-title">All Parkings</h3>
+          <button class="btn-add" (click)="openParkingModal()">+ Add Parking</button>
         </div>
+
         <div *ngIf="loadingParkings" class="loading-state">Loading parkings...</div>
-        <table *ngIf="!loadingParkings">
+
+        <table *ngIf="!loadingParkings && parkings.length > 0">
           <thead>
             <tr>
               <td class="th">Name</td>
               <td class="th">Address</td>
+              <td class="th">Description</td>
               <td class="th">Status</td>
               <td class="th">Zones</td>
+              <td class="th">Actions</td>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let p of parkings">
-              <td>{{ p.name }}</td>
+              <td><strong>{{ p.name }}</strong></td>
               <td class="muted">{{ p.address }}</td>
+              <td class="muted">{{ p.description || '—' }}</td>
               <td>
                 <span class="badge" [class.badge-inactive]="!p.isActive">
                   {{ p.isActive ? 'Active' : 'Inactive' }}
                 </span>
               </td>
               <td>{{ p.zones?.length ?? 0 }}</td>
+              <td class="actions-cell">
+                <button class="btn-edit" (click)="openParkingModal(p)">Edit</button>
+                <button class="btn-view" (click)="viewZonesByParking(p)">Zones</button>
+              </td>
             </tr>
           </tbody>
         </table>
+
+        <div class="empty-state" *ngIf="!loadingParkings && parkings.length === 0">No parkings found.</div>
+      </div>
+
+      <!-- PARKING MODAL -->
+      <div class="modal-overlay" *ngIf="showParkingModal" (click)="closeParkingModal()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ editingParking ? 'Edit Parking' : 'Add Parking' }}</h3>
+            <button class="modal-close" (click)="closeParkingModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Name *</label>
+              <input class="form-input" [(ngModel)]="parkingForm.name" placeholder="e.g. Central Parking" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Address *</label>
+              <input class="form-input" [(ngModel)]="parkingForm.address" placeholder="e.g. 12 Main Street" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea class="form-input form-textarea" [(ngModel)]="parkingForm.description" placeholder="Optional description..."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select class="form-input" [(ngModel)]="parkingForm.isActive">
+                <option [ngValue]="true">Active</option>
+                <option [ngValue]="false">Inactive</option>
+              </select>
+            </div>
+            <div class="form-error" *ngIf="parkingFormError">{{ parkingFormError }}</div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" (click)="closeParkingModal()">Cancel</button>
+            <button class="btn-save" (click)="saveParking()" [disabled]="savingParking">
+              {{ savingParking ? 'Saving...' : (editingParking ? 'Update' : 'Create') }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- ZONES -->
       <div *ngIf="section==='zones'">
         <div class="section-header">
           <h3 class="section-title">All Zones</h3>
-          <div class="filter-inline">
+          <div style="display:flex;gap:10px;align-items:center;">
             <input
               class="search-input"
               [(ngModel)]="zoneSearch"
               placeholder="Search by zone or parking..."
               (input)="filterZones()"
             />
+            <button class="btn-add" (click)="openZoneModal()">+ Add Zone</button>
           </div>
         </div>
+
         <div *ngIf="loadingZones" class="loading-state">Loading zones...</div>
-        <table *ngIf="!loadingZones">
+
+        <table *ngIf="!loadingZones && filteredZones.length > 0">
           <thead>
             <tr>
               <td class="th">Zone Name</td>
               <td class="th">Parking</td>
-              <td class="th">Action</td>
+              <td class="th">Actions</td>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let z of filteredZones">
-              <td>{{ z.name }}</td>
+              <td><strong>{{ z.name }}</strong></td>
               <td class="muted">{{ z.parkingName }}</td>
-              <td>
+              <td class="actions-cell">
+                <button class="btn-edit" (click)="openZoneModal(z)">Edit</button>
                 <button class="btn-view" (click)="viewSpotsByZone(z)">View Spots</button>
               </td>
             </tr>
           </tbody>
         </table>
+
         <div class="empty-state" *ngIf="!loadingZones && filteredZones.length === 0">No zones found.</div>
+      </div>
+
+      <!-- ZONE MODAL -->
+      <div class="modal-overlay" *ngIf="showZoneModal" (click)="closeZoneModal()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>{{ editingZone ? 'Edit Zone' : 'Add Zone' }}</h3>
+            <button class="modal-close" (click)="closeZoneModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Zone Name *</label>
+              <input class="form-input" [(ngModel)]="zoneForm.name" placeholder="e.g. Zone A" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Parking *</label>
+              <select class="form-input" [(ngModel)]="zoneForm.parkingId">
+                <option value="">— Select a parking —</option>
+                <option *ngFor="let p of parkings" [value]="p.id">{{ p.name }}</option>
+              </select>
+            </div>
+            <div class="form-error" *ngIf="zoneFormError">{{ zoneFormError }}</div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" (click)="closeZoneModal()">Cancel</button>
+            <button class="btn-save" (click)="saveZone()" [disabled]="savingZone">
+              {{ savingZone ? 'Saving...' : (editingZone ? 'Update' : 'Create') }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- SPOTS -->
@@ -185,6 +271,82 @@
         </div>
         <div class="empty-state" *ngIf="!spotsLoaded && !loadingSpots">
           Select a parking to load spots.
+        </div>
+      </div>
+
+      <!-- PROFILE -->
+      <div *ngIf="section==='profile'">
+        <div class="profile-layout">
+
+          <!-- Profile Card -->
+          <div class="profile-card">
+            <div class="profile-avatar">
+              <span class="avatar-initials">{{ profileInitials }}</span>
+            </div>
+            <div class="profile-info">
+              <h3 class="profile-name">{{ profile.fullName || 'Manager' }}</h3>
+              <span class="profile-role-badge">Manager</span>
+              <p class="profile-email">{{ profile.email }}</p>
+            </div>
+            <div class="profile-stats">
+              <div class="profile-stat">
+                <span class="profile-stat-val">{{ counts.p }}</span>
+                <span class="profile-stat-label">Parkings</span>
+              </div>
+              <div class="profile-stat">
+                <span class="profile-stat-val">{{ counts.z }}</span>
+                <span class="profile-stat-label">Zones</span>
+              </div>
+              <div class="profile-stat">
+                <span class="profile-stat-val">{{ counts.s }}</span>
+                <span class="profile-stat-label">Spots</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit Profile Form -->
+          <div class="profile-form-card">
+            <h4 class="profile-form-title">Edit Profile</h4>
+
+            <div class="profile-success" *ngIf="profileSaveSuccess">✓ Profile updated successfully!</div>
+            <div class="profile-error" *ngIf="profileSaveError">{{ profileSaveError }}</div>
+
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input class="form-input" [(ngModel)]="profileForm.fullName" placeholder="Your full name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input class="form-input" [(ngModel)]="profileForm.email" placeholder="your@email.com" type="email" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input class="form-input" [(ngModel)]="profileForm.phone" placeholder="+1 234 567 8900" />
+            </div>
+
+            <div class="profile-divider"></div>
+
+            <h4 class="profile-form-title">Change Password</h4>
+            <div class="form-group">
+              <label class="form-label">Current Password</label>
+              <input class="form-input" [(ngModel)]="profileForm.currentPassword" type="password" placeholder="••••••••" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">New Password</label>
+              <input class="form-input" [(ngModel)]="profileForm.newPassword" type="password" placeholder="••••••••" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm New Password</label>
+              <input class="form-input" [(ngModel)]="profileForm.confirmPassword" type="password" placeholder="••••••••" />
+            </div>
+
+            <div class="profile-form-footer">
+              <button class="btn-save" (click)="saveProfile()" [disabled]="savingProfile">
+                {{ savingProfile ? 'Saving...' : 'Save Changes' }}
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
 
